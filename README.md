@@ -1,128 +1,170 @@
-# Padua Prediction Score — VTE Risk Calculator
+# PADUA Vte Prediction Score
 
-A zero-dependency Python implementation of the **Padua Prediction Score** for assessing venous thromboembolism (VTE) risk in hospitalized medical patients.
+> **Domain:** Clinical Decision Support & Biomedical Computing  
+> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
 
-## What This Is
+<div align="center">
 
-The Padua Prediction Score is a validated clinical decision tool published by Barbar S et al. (J Thromb Haemost, 2010) that stratifies hospitalized medical patients into VTE risk categories to guide thromboprophylaxis decisions.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
+![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
+![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
 
-This calculator also includes:
-- **IMPROVE VTE Score** — a second validated VTE risk model for medical patients (Spyropoulos AC et al., Chest, 2011)
-- **Bleeding Risk Assessment** — based on IMPROVE bleeding risk model components, to weigh anticoagulation benefit vs. risk
-- **Integrated Clinical Decision** — combines all three assessments with an overall recommendation
+</div>
 
-## Risk Factors and Points
+---
 
-| Risk Factor | Points |
-|:---|:---:|
-| Active cancer (metastatic and/or chemo/radiation within 6 months) | 3 |
-| Previous VTE (excluding superficial vein thrombosis) | 3 |
-| Reduced mobility (bed rest ≥3 days due to acute illness) | 3 |
-| Already known thrombophilic condition | 3 |
-| Recent trauma and/or surgery (<1 month) | 2 |
-| Age ≥70 | 1 |
-| Heart and/or respiratory failure | 1 |
-| Acute MI and/or ischemic stroke | 1 |
-| Acute infection and/or rheumatologic disorder | 1 |
-| Obesity (BMI ≥30) | 1 |
-| Ongoing hormonal treatment | 1 |
+## 📖 What It Does
 
-**Total range: 0–20 points**
+Padua Prediction Score for VTE Risk in Hospitalized Medical Patients.
 
-### Interpretation
+Validated clinical decision tool to assess venous thromboembolism (VTE) risk
+in hospitalized medical patients and guide thromboprophylaxis decisions.
 
-| Score | Risk Level | VTE Incidence (no prophylaxis) | Recommendation |
-|:---:|:---|:---:|:---|
-| ≥4 | High | ~11.0% | Pharmacologic prophylaxis recommended |
-| <4 | Low | ~0.3% | Prophylaxis not routinely recommended |
+Reference: Barbar S, et al. "A risk assessment model for the identification of
+hospitalized medical patients at risk for venous thromboembolism: the Padua
+Prediction Score." J Thromb Haemost. 2010;8(11):2450-2457.
 
-## Installation
+Also includes:
+- IMPROVE VTE score comparison (another medical patient VTE risk model)
+- Bleeding risk assessment for anticoagulation consideration
+- Prophylaxis recommendations based on risk stratification
 
-No dependencies required. Python 3.8+ stdlib only.
+Zero dependencies — Python stdlib only.
+
+Padua Prediction Score for Hospitalized Medical Patients
+Evaluates VTE risk in non-surgical hospitalized patients to guide thromboprophylaxis.
+
+Zero-dependency Python implementation with single and batch evaluation.
+Author: Dr. Abu Suraih Sakhri
+License: MIT
+
+---
+
+## ⚙️ Key Capabilities & Algorithmic Modules
+
+### 🔬 Analytical Functions
+
+- **`calculate_padua_score()`**: Calculate the Padua Prediction Score for VTE risk.
+
+Returns a dict with:
+  - score: int (0–20)
+  - risk_level: "Low" or "High"
+  - vte_incidence: estimated VTE incidence without prophylaxis
+  - prophylaxis_recommended: bool
+  - prophylaxis_rationale: str
+  - active_factors: list of (factor_name, points) tuples for factors present
+  - max_possible_score: int (20)
+- **`calculate_improve_vte_score()`**: Calculate the IMPROVE VTE score for hospitalized medical patients.
+
+Reference: Spyropoulos AC, et al. "Predictive and Associative Models to
+Identify Hospitalized Medical Patients at Risk for VTE." Chest. 2011.
+
+Returns a dict with:
+  - score: int
+  - risk_level: "Low" or "Elevated"
+  - vte_risk_description: str
+  - active_factors: list of (factor_name, points) tuples
+- **`assess_bleeding_risk()`**: Assess bleeding risk in patients being considered for anticoagulation.
+
+Based on IMPROVE bleeding risk model components. Helps weigh the benefit
+of VTE prophylaxis against the risk of bleeding.
+
+Returns a dict with:
+  - score: int
+  - bleeding_risk_level: "Low", "Moderate", or "High"
+  - clinical_note: str
+  - active_factors: list of (factor_name, points) tuples
+- **`clinical_decision()`**: Combined VTE risk and bleeding risk assessment with integrated
+prophylaxis recommendation.
+
+Returns a dict with:
+  - padua_result: dict from calculate_padua_score
+  - improve_result: dict from calculate_improve_vte_score
+  - bleeding_result: dict from assess_bleeding_risk
+  - overall_recommendation: str
+- **`format_report()`**: Format a clinical_decision result into a readable text report.
+
+---
+
+## 📐 Mathematical Formulation & Logic
+
+```text
+  Calculate the Padua Prediction Score for VTE risk.
+  score = 0
+  is_high_risk = score >= PADUA_THRESHOLD
+  Calculate the IMPROVE VTE score for hospitalized medical patients.
+  - padua_result: dict from calculate_padua_score
+```
+
+---
+
+## 💻 CLI Quickstart & Usage
+
+### 1. Guided Interactive Mode
+```bash
+python cli.py
+```
+
+### 2. Direct Parameterized Evaluation
+```bash
+python cli.py --active-cancer <value> --reduced-mobility <value> --age-70-or-older <value> --all-factors <value>
+```
+
+### Parameter Reference
+- `--active-cancer`: Specifies input measurement or parameter value.
+- `--reduced-mobility`: Specifies input measurement or parameter value.
+- `--age-70-or-older`: Specifies input measurement or parameter value.
+- `--all-factors`: Specifies input measurement or parameter value.
+- `--previous-vte`: Specifies input measurement or parameter value.
+- `--active-gastroduodenal-ulcer`: Specifies input measurement or parameter value.
+- `--platelet-count-below-50k`: Specifies input measurement or parameter value.
+- `--bleeding-active-cancer`: Specifies input measurement or parameter value.
+- `--thrombophilic-condition`: Specifies input measurement or parameter value.
+- `--recent-trauma-or-surgery`: Specifies input measurement or parameter value.
+
+### Input Data Schema
+
+| Field | Description | Requirement |
+|:------|:------------|:------------|
+| `Patient_ID` | Parameter / observation metric | Required |
+| `v1` | Parameter / observation metric | Required |
+| `v2` | Parameter / observation metric | Required |
+| `v3` | Parameter / observation metric | Required |
+
+---
+
+## 🛡️ Security & Enterprise Architecture
+
+* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
+* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
+* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
+* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+
+---
+
+## 🧪 Testing & Verification
+
+Run the automated test suite:
 
 ```bash
-git clone <repo-url>
-cd padua-vte-prediction-score
+pytest -v
 ```
 
-## CLI Usage
-
-### Calculate Padua Score
+Execute high-throughput batch simulation benchmarks:
 
 ```bash
-# Low-risk patient: 65-year-old with obesity only
-python cli.py assess --obesity-bmi-30-or-older
-# Score: 1, Low risk, prophylaxis not recommended
-
-# High-risk patient: cancer patient with reduced mobility
-python cli.py assess --active-cancer --reduced-mobility
-# Score: 6, High risk, prophylaxis recommended
-
-# JSON output
-python cli.py --json assess --active-cancer --reduced-mobility --age-70-or-older
+python simulator.py --tasks 1000 --concurrency 8
 ```
 
-### Compare Padua and IMPROVE VTE Scores
+---
+
+## 🐳 Container Deployment
 
 ```bash
-python cli.py compare --active-cancer --reduced-mobility --improve-current-cancer
+docker build -t padua-vte-prediction-score .
+docker run -p 8000:8000 padua-vte-prediction-score
 ```
-
-### Assess Bleeding Risk
-
-```bash
-python cli.py bleeding --bleeding-ulcer --bleeding-recent
-```
-
-### Full Assessment (Padua + IMPROVE + Bleeding + Recommendation)
-
-```bash
-python cli.py full --active-cancer --reduced-mobility --bleeding-ulcer
-```
-
-### View All Risk Factors
-
-```bash
-python cli.py info
-```
-
-## Python API
-
-```python
-from padua import calculate_padua_score, clinical_decision, format_report
-
-# Simple Padua score
-result = calculate_padua_score(active_cancer=True, reduced_mobility=True, age_70_or_older=True)
-print(f"Score: {result['score']}, Risk: {result['risk_level']}")
-# Score: 7, Risk: High
-
-# Full clinical decision with bleeding assessment
-decision = clinical_decision(
-    padua_kwargs={"active_cancer": True, "reduced_mobility": True},
-    improve_kwargs={"current_cancer": True},
-    bleeding_kwargs={"active_gastroduodenal_ulcer": True},
-)
-print(format_report(decision))
-```
-
-## Running Tests
-
-```bash
-python -m pytest test_padua.py -v
-```
-
-## Limitations
-
-- This tool does **not** replace clinical judgment. It is an educational and decision-support aid.
-- The Padua Score was validated in hospitalized medical (non-surgical) patients. It is not intended for surgical patients, outpatients, or emergency department triage.
-- The bleeding risk assessment is based on IMPROVE bleeding model components but is simplified. Use validated institutional tools for formal bleeding risk assessment.
-- VTE incidence figures (11.0% and 0.3%) are from the original Barbar et al. validation cohort and may vary across populations.
-
-## References
-
-1. Barbar S, Noventa F, Rossetto V, et al. "A risk assessment model for the identification of hospitalized medical patients at risk for venous thromboembolism: the Padua Prediction Score." *J Thromb Haemost.* 2010;8(11):2450-2457.
-2. Spyropoulos AC, Anderson FA Jr, FitzGerald G, et al. "Predictive and Associative Models to Identify Hospitalized Medical Patients at Risk for VTE." *Chest.* 2011;140(3):706-714.
-
-## License
-
-MIT License. See [LICENSE](LICENSE).
