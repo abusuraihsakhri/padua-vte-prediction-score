@@ -3,9 +3,13 @@ Automated Pytest Test Suite for Padua Vte Prediction Score.
 Domain: Clinical & Biomedical AI
 Standard: CAP / CLSI / ISO Standards
 """
+import os
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Set a deterministic test key before importing agents
+os.environ.setdefault("AUDIT_SECRET_KEY", "test-only-key-not-for-production")
 
 import pytest
 from agents.base import PHIGuard, AuditLogger, SecurityException

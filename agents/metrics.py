@@ -1,7 +1,6 @@
 """
 Prometheus Operational Metrics Exporter for padua-vte-prediction-score.
 """
-import time
 from typing import Dict, Any
 
 class SystemMetricsCollector:

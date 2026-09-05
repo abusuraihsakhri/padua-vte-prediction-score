@@ -1,13 +1,12 @@
-# PADUA Vte Prediction Score
+# PADUA VTE Prediction Score
 
 > **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+> **Reference:** Barbar S, et al. "A risk assessment model for the identification of hospitalized medical patients at risk for venous thromboembolism: the Padua Prediction Score." J Thromb Haemost. 2010;8(11):2450-2457.
 
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
 ![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
 ![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
@@ -16,155 +15,232 @@
 
 ---
 
-## 📖 What It Does
+## What It Does
 
-Padua Prediction Score for VTE Risk in Hospitalized Medical Patients.
+Padua Prediction Score calculator for VTE (Venous Thromboembolism) risk stratification in hospitalized medical patients. Validated clinical decision tool to guide thromboprophylaxis decisions.
 
-Validated clinical decision tool to assess venous thromboembolism (VTE) risk
-in hospitalized medical patients and guide thromboprophylaxis decisions.
+**Key features:**
+- **Padua Prediction Score** — Primary VTE risk assessment (score 0-20, threshold ≥4 = high risk)
+- **IMPROVE VTE Score** — Comparison model for dual assessment
+- **Bleeding Risk Assessment** — IMPROVE-based bleeding risk evaluation
+- **Combined Clinical Decision** — Integrated recommendation engine
+- **Enterprise Supervisor** — Multi-agent audit system with HMAC-SHA256 tamper-evident logging
+- **Zero-PHI Guard** — Outbound PHI detection and redaction
 
-Reference: Barbar S, et al. "A risk assessment model for the identification of
-hospitalized medical patients at risk for venous thromboembolism: the Padua
-Prediction Score." J Thromb Haemost. 2010;8(11):2450-2457.
-
-Also includes:
-- IMPROVE VTE score comparison (another medical patient VTE risk model)
-- Bleeding risk assessment for anticoagulation consideration
-- Prophylaxis recommendations based on risk stratification
-
-Zero dependencies — Python stdlib only.
-
-Padua Prediction Score for Hospitalized Medical Patients
-Evaluates VTE risk in non-surgical hospitalized patients to guide thromboprophylaxis.
-
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+Zero core dependencies — Python stdlib only for score calculation. Optional `pydantic` for enterprise features.
 
 ---
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+## Installation
 
-### 🔬 Analytical Functions
+```bash
+# Clone the repository
+git clone https://github.com/abusuraihsakhri/padua-vte-prediction-score.git
+cd padua-vte-prediction-score
 
-- **`calculate_padua_score()`**: Calculate the Padua Prediction Score for VTE risk.
+# No installation needed for core functionality (stdlib only)
 
-Returns a dict with:
-  - score: int (0–20)
-  - risk_level: "Low" or "High"
-  - vte_incidence: estimated VTE incidence without prophylaxis
-  - prophylaxis_recommended: bool
-  - prophylaxis_rationale: str
-  - active_factors: list of (factor_name, points) tuples for factors present
-  - max_possible_score: int (20)
-- **`calculate_improve_vte_score()`**: Calculate the IMPROVE VTE score for hospitalized medical patients.
+# Optional: Install pydantic for enterprise supervisor features
+pip install pydantic
 
-Reference: Spyropoulos AC, et al. "Predictive and Associative Models to
-Identify Hospitalized Medical Patients at Risk for VTE." Chest. 2011.
-
-Returns a dict with:
-  - score: int
-  - risk_level: "Low" or "Elevated"
-  - vte_risk_description: str
-  - active_factors: list of (factor_name, points) tuples
-- **`assess_bleeding_risk()`**: Assess bleeding risk in patients being considered for anticoagulation.
-
-Based on IMPROVE bleeding risk model components. Helps weigh the benefit
-of VTE prophylaxis against the risk of bleeding.
-
-Returns a dict with:
-  - score: int
-  - bleeding_risk_level: "Low", "Moderate", or "High"
-  - clinical_note: str
-  - active_factors: list of (factor_name, points) tuples
-- **`clinical_decision()`**: Combined VTE risk and bleeding risk assessment with integrated
-prophylaxis recommendation.
-
-Returns a dict with:
-  - padua_result: dict from calculate_padua_score
-  - improve_result: dict from calculate_improve_vte_score
-  - bleeding_result: dict from assess_bleeding_risk
-  - overall_recommendation: str
-- **`format_report()`**: Format a clinical_decision result into a readable text report.
-
----
-
-## 📐 Mathematical Formulation & Logic
-
-```text
-  Calculate the Padua Prediction Score for VTE risk.
-  score = 0
-  is_high_risk = score >= PADUA_THRESHOLD
-  Calculate the IMPROVE VTE score for hospitalized medical patients.
-  - padua_result: dict from calculate_padua_score
+# For development/testing:
+pip install pytest
 ```
 
 ---
 
-## 💻 CLI Quickstart & Usage
+## Usage
 
-### 1. Guided Interactive Mode
-```bash
-python cli.py
+### Python API
+
+```python
+from padua import calculate_padua_score, clinical_decision, format_report
+
+# Single patient assessment
+result = calculate_padua_score(
+    active_cancer=True,
+    reduced_mobility=True,
+    age_70_or_older=True,
+)
+print(f"Score: {result['score']}, Risk: {result['risk_level']}")
+
+# Full clinical decision with bleeding risk
+decision = clinical_decision(
+    padua_kwargs={"active_cancer": True, "reduced_mobility": True},
+    bleeding_kwargs={"active_gastroduodenal_ulcer": True},
+)
+print(format_report(decision))
 ```
 
-### 2. Direct Parameterized Evaluation
+### CLI Commands
+
 ```bash
-python cli.py --active-cancer <value> --reduced-mobility <value> --age-70-or-older <value> --all-factors <value>
+# Show risk factor reference
+python cli.py info
+
+# Assess VTE risk
+python cli.py assess --active-cancer --reduced-mobility --age-70-or-older
+
+# Compare Padua + IMPROVE scores
+python cli.py compare --active-cancer --improve-previous-vte
+
+# Assess bleeding risk
+python cli.py bleeding --bleeding-ulcer --bleeding-low-platelets
+
+# Full assessment with integrated recommendation
+python cli.py full --active-cancer --reduced-mobility
+
+# JSON output
+python cli.py --json assess --active-cancer
+
+# Enterprise supervisor audit
+python cli.py audit --task-id TASK-001 --primary-metric 15.0
+
+# Supervisory chat
+python cli.py chat "Explain the Padua threshold"
+
+# Verify audit trail integrity
+python cli.py verify-audit
 ```
 
-### Parameter Reference
-- `--active-cancer`: Specifies input measurement or parameter value.
-- `--reduced-mobility`: Specifies input measurement or parameter value.
-- `--age-70-or-older`: Specifies input measurement or parameter value.
-- `--all-factors`: Specifies input measurement or parameter value.
-- `--previous-vte`: Specifies input measurement or parameter value.
-- `--active-gastroduodenal-ulcer`: Specifies input measurement or parameter value.
-- `--platelet-count-below-50k`: Specifies input measurement or parameter value.
-- `--bleeding-active-cancer`: Specifies input measurement or parameter value.
-- `--thrombophilic-condition`: Specifies input measurement or parameter value.
-- `--recent-trauma-or-surgery`: Specifies input measurement or parameter value.
+### Enterprise Supervisor (requires pydantic)
 
-### Input Data Schema
+```python
+from agents.supervisor import SystemSupervisor
+from agents.models import SystemTaskPayload
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+supervisor = SystemSupervisor(model_provider="mock")
+payload = SystemTaskPayload(
+    task_id="TASK-001",
+    target_identifier="PATIENT-001",
+    primary_metric=15.0,
+    secondary_metric=3.0,
+    status_descriptor="NOMINAL"
+)
+dossier = supervisor.process_task(payload)
+print(f"Urgency: {dossier.overall_urgency.value}")
+```
 
 ---
 
-## 🛡️ Security & Enterprise Architecture
+## Risk Factors
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+### Padua Prediction Score
+
+| Factor | Points |
+|--------|--------|
+| Active cancer (metastatic and/or chemo/radiation within 6 months) | +3 |
+| Previous VTE (excluding superficial vein thrombosis) | +3 |
+| Reduced mobility (bed rest ≥3 days) | +3 |
+| Known thrombophilic condition | +3 |
+| Recent trauma/surgery (<1 month) | +2 |
+| Age ≥70 | +1 |
+| Heart/respiratory failure | +1 |
+| Acute MI/ischemic stroke | +1 |
+| Acute infection/rheumatologic disorder | +1 |
+| Obesity (BMI ≥30) | +1 |
+| Ongoing hormonal treatment | +1 |
+
+**Threshold:** Score ≥ 4 = High VTE risk (prophylaxis recommended)
+
+### IMPROVE VTE Score
+
+| Factor | Points |
+|--------|--------|
+| Previous VTE | +3 |
+| Known thrombophilia | +2 |
+| Lower limb paralysis | +2 |
+| Current cancer | +2 |
+| Immobilized ≥7 days | +1 |
+| ICU/CCU stay | +1 |
+| Age ≥60 | +1 |
+
+**Threshold:** Score ≥ 2 = Elevated risk
 
 ---
 
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+## Testing
 
 ```bash
+# Run all tests
 pytest -v
-```
 
-Execute high-throughput batch simulation benchmarks:
-
-```bash
-python simulator.py --tasks 1000 --concurrency 8
+# Run specific test files
+pytest test_padua.py -v
+pytest test_padua_score.py -v
+pytest tests/ -v
 ```
 
 ---
 
-## 🐳 Container Deployment
+## Configuration
+
+The enterprise supervisor features require an `AUDIT_SECRET_KEY` environment variable for HMAC-SHA256 audit trail signing:
 
 ```bash
-docker build -t padua-vte-prediction-score .
-docker run -p 8000:8000 padua-vte-prediction-score
+# Generate a secure key
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# Set in environment
+export AUDIT_SECRET_KEY="your-secure-key-here"
+
+# Or create a .env file (DO NOT commit this)
+cp .env.example .env
+# Edit .env with your secure key
 ```
+
+---
+
+## Docker
+
+```bash
+# Build
+docker build -t padua-vte-prediction-score .
+
+# Run CLI info
+docker run padua-vte-prediction-score
+
+# Run assessment
+docker run padua-vte-prediction-score python cli.py assess --active-cancer
+
+# With docker-compose (requires .env file)
+docker-compose up
+```
+
+---
+
+## Project Structure
+
+```
+padua-vte-prediction-score/
+├── padua.py              # Core scoring algorithms (zero-dependency)
+├── cli.py                # Command-line interface
+├── padua_score.py        # Batch processing utility
+├── enrichment.py         # Enrichment engine suite
+├── simulator.py          # High-throughput simulation
+├── agents/               # Enterprise supervisor system
+│   ├── base.py           # PHI guard, HMAC audit trail
+│   ├── models.py         # Pydantic schemas
+│   ├── supervisor.py     # Multi-agent orchestrator
+│   ├── workers.py        # Specialized evaluation workers
+│   ├── api.py            # FastAPI REST endpoints
+│   ├── metrics.py        # Prometheus metrics
+│   └── ...
+├── tests/                # Test suites
+├── web/                  # Operations console (HTML)
+├── Dockerfile
+├── docker-compose.yml
+└── README.md
+```
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
+
+**Author:** Dr. Abu Suraih Sakhri
+
+---
+
+**Disclaimer:** This tool does NOT replace clinical judgment. It is intended to support, not substitute for, clinical decision-making by qualified healthcare professionals.

@@ -11,9 +11,8 @@ License: MIT
 import argparse
 import csv
 import json
-import math
 import sys
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
 
 def calculate_metrics(**kwargs) -> Dict[str, Any]:

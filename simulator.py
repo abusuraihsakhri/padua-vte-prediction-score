@@ -1,9 +1,14 @@
 """
 Distributed Component High-Throughput Traffic & Stress Testing Simulator for Padua Vte Prediction Score.
 """
+import os
 import time
 import random
 import sys
+
+# Ensure a key is set for simulation runs
+os.environ.setdefault("AUDIT_SECRET_KEY", "simulation-key-not-for-production")
+
 from agents.models import SystemTaskPayload
 from agents.supervisor import SystemSupervisor
 from agents.base import PHIGuard, SecurityException, AuditLogger

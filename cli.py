@@ -25,6 +25,10 @@ from padua import (
     BLEEDING_RISK_FACTORS,
 )
 
+from agents.base import AuditLogger, PHIGuard, SecurityException
+from agents.models import SystemTaskPayload, UrgencyLevel
+from agents.supervisor import SystemSupervisor
+
 
 def _add_padua_flags(parser: argparse.ArgumentParser) -> None:
     """Add boolean flags for all Padua risk factors to a parser."""
@@ -283,7 +287,7 @@ def cmd_info(args):
     print("=== PADUA PREDICTION SCORE — Risk Factors ===")
     for name, pts in PADUA_RISK_FACTORS.items():
         print(f"  {pts:>2} pts  {name.replace('_', ' ').title()}")
-    print(f"\n  Threshold: >= {PADUA_RISK_FACTORS.__len__()} factors, score >= 4 = High risk")
+    print(f"\n  Threshold: score >= 4 = High risk")
     print(f"  Max possible score: 20")
     print()
     print("=== IMPROVE VTE SCORE — Risk Factors ===")
@@ -295,6 +299,60 @@ def cmd_info(args):
     for name, info in BLEEDING_RISK_FACTORS.items():
         print(f"  {info['points']:>2} pts  {info['description']}")
     print(f"\n  Threshold: >= 7 = High bleeding risk")
+
+
+def cmd_audit(args):
+    """Dispatch a task through the enterprise supervisor system."""
+    supervisor = SystemSupervisor(model_provider="mock")
+    try:
+        PHIGuard.assert_no_phi(args.task_id)
+        PHIGuard.assert_no_phi(args.target_identifier)
+    except SecurityException as e:
+        print(f"Security violation: {e}", file=sys.stderr)
+        return 1
+
+    payload = SystemTaskPayload(
+        task_id=args.task_id,
+        target_identifier=args.target_identifier,
+        primary_metric=args.primary_metric,
+        secondary_metric=args.secondary_metric,
+        status_descriptor=args.status_descriptor,
+        is_critical_flag=args.is_critical_flag,
+    )
+    dossier = supervisor.process_task(payload)
+    print(f"Dossier ID: {dossier.dossier_id}")
+    print(f"Overall Urgency: {dossier.overall_urgency.value}")
+    print(f"Integrity Status: {dossier.integrity_status.value}")
+    print(f"Total Alerts: {dossier.total_alerts}")
+    print(f"Audit Hash: {dossier.audit_hash}")
+    if dossier.alerts:
+        print("\nAlerts:")
+        for alert in dossier.alerts:
+            print(f"  [{alert.urgency.value}] {alert.summary}")
+            print(f"    {alert.technical_details}")
+    return 0
+
+
+def cmd_chat(args):
+    """Query the air-gapped supervisory chat assistant."""
+    supervisor = SystemSupervisor(model_provider="mock")
+    query = " ".join(args.query_parts)
+    try:
+        response = supervisor.query_supervisory_chat(query)
+        print(response)
+        return 0
+    except SecurityException as e:
+        print(f"Security violation: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_verify_audit(args):
+    """Verify the HMAC-SHA256 audit trail integrity."""
+    verified = AuditLogger.verify_integrity()
+    trail = AuditLogger.get_trail()
+    print(f"Audit trail entries: {len(trail)}")
+    print(f"Integrity verified: {'YES' if verified else 'NO - TAMPERING DETECTED'}")
+    return 0 if verified else 1
 
 
 def main(argv=None):
@@ -335,6 +393,25 @@ def main(argv=None):
     # info
     p_info = subparsers.add_parser("info", help="Show all risk factors and point values")
     p_info.set_defaults(func=cmd_info)
+
+    # audit (enterprise supervisor)
+    p_audit = subparsers.add_parser("audit", help="Dispatch task through enterprise supervisor")
+    p_audit.add_argument("--task-id", default="TASK-001", help="Task identifier")
+    p_audit.add_argument("--target-identifier", default="KEY-001", help="Target identifier")
+    p_audit.add_argument("--primary-metric", type=float, default=10.0, help="Primary measurement")
+    p_audit.add_argument("--secondary-metric", type=float, default=2.0, help="Secondary metric")
+    p_audit.add_argument("--status-descriptor", default="NOMINAL", help="Status descriptor")
+    p_audit.add_argument("--is-critical-flag", action="store_true", help="Critical flag")
+    p_audit.set_defaults(func=cmd_audit)
+
+    # chat (supervisory assistant)
+    p_chat = subparsers.add_parser("chat", help="Query the supervisory chat assistant")
+    p_chat.add_argument("query_parts", nargs="+", help="Query text")
+    p_chat.set_defaults(func=cmd_chat)
+
+    # verify-audit
+    p_verify = subparsers.add_parser("verify-audit", help="Verify HMAC-SHA256 audit trail integrity")
+    p_verify.set_defaults(func=cmd_verify_audit)
 
     args = parser.parse_args(argv)
 
