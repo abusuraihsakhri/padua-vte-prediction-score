@@ -25,10 +25,7 @@ from padua import (
     BLEEDING_RISK_FACTORS,
 )
 
-from agents.base import AuditLogger, PHIGuard, SecurityException
-from agents.models import SystemTaskPayload, UrgencyLevel
-from agents.supervisor import SystemSupervisor
-
+ 
 
 def _add_padua_flags(parser: argparse.ArgumentParser) -> None:
     """Add boolean flags for all Padua risk factors to a parser."""
@@ -114,7 +111,7 @@ def _add_bleeding_flags(parser: argparse.ArgumentParser) -> None:
     """Add boolean flags for bleeding risk factors."""
     parser.add_argument(
         "--bleeding-ulcer", action="store_true",
-        help="[Bleeding] Active gastroduodenal ulcer [+4]"
+        help="[Bleeding] Active gastroduodenal ulcer [+4.5]"
     )
     parser.add_argument(
         "--bleeding-recent", action="store_true",
@@ -126,15 +123,15 @@ def _add_bleeding_flags(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--bleeding-hepatic-failure", action="store_true",
-        help="[Bleeding] Hepatic failure (INR >=1.5) [+2]"
+        help="[Bleeding] Hepatic failure (INR >1.5) [+2.5]"
     )
     parser.add_argument(
         "--bleeding-renal-failure", action="store_true",
-        help="[Bleeding] Severe renal failure (GFR <30) [+2]"
+        help="[Bleeding] Severe renal failure (GFR <30) [+2.5]"
     )
     parser.add_argument(
         "--bleeding-icu-or-ccu", action="store_true",
-        help="[Bleeding] ICU/CCU stay [+2]"
+        help="[Bleeding] ICU/CCU stay [+2.5]"
     )
     parser.add_argument(
         "--bleeding-central-catheter", action="store_true",
@@ -150,8 +147,14 @@ def _add_bleeding_flags(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--bleeding-age-85-or-older", action="store_true",
-        help="[Bleeding] Age >=85 [+1]"
+        help="[Bleeding] Age >=85 [+3.5]"
     )
+    parser.add_argument("--bleeding-age-40-to-84", action="store_true",
+                        help="[Bleeding] Age 40–84 [+1.5]")
+    parser.add_argument("--bleeding-moderate-renal-failure", action="store_true",
+                        help="[Bleeding] GFR 30–59 [+1]")
+    parser.add_argument("--bleeding-male-sex", action="store_true",
+                        help="[Bleeding] Male sex [+1]")
 
 
 def _extract_padua_kwargs(args) -> dict:
@@ -194,6 +197,9 @@ def _extract_bleeding_kwargs(args) -> dict:
         "rheumatologic_disorder": args.bleeding_rheumatologic,
         "active_cancer": args.bleeding_active_cancer,
         "age_85_or_older": args.bleeding_age_85_or_older,
+        "age_40_to_84": args.bleeding_age_40_to_84,
+        "moderate_renal_failure": args.bleeding_moderate_renal_failure,
+        "male_sex": args.bleeding_male_sex,
     }
 
 
@@ -247,6 +253,8 @@ def cmd_bleeding(args):
     kwargs = _extract_bleeding_kwargs(args)
     if args.all_factors:
         kwargs = {k: True for k in kwargs}
+        kwargs["age_40_to_84"] = False
+        kwargs["moderate_renal_failure"] = False
     result = assess_bleeding_risk(**kwargs)
     if args.json:
         print(json.dumps(result, indent=2))
@@ -269,6 +277,8 @@ def cmd_full(args):
         padua_kwargs = {k: True for k in padua_kwargs}
         improve_kwargs = {k: True for k in improve_kwargs}
         bleeding_kwargs = {k: True for k in bleeding_kwargs}
+        bleeding_kwargs["age_40_to_84"] = False
+        bleeding_kwargs["moderate_renal_failure"] = False
 
     result = clinical_decision(
         padua_kwargs=padua_kwargs,
@@ -303,6 +313,9 @@ def cmd_info(args):
 
 def cmd_audit(args):
     """Dispatch a task through the enterprise supervisor system."""
+    from agents.base import PHIGuard, SecurityException
+    from agents.models import SystemTaskPayload
+    from agents.supervisor import SystemSupervisor
     supervisor = SystemSupervisor(model_provider="mock")
     try:
         PHIGuard.assert_no_phi(args.task_id)
@@ -335,6 +348,8 @@ def cmd_audit(args):
 
 def cmd_chat(args):
     """Query the air-gapped supervisory chat assistant."""
+    from agents.base import SecurityException
+    from agents.supervisor import SystemSupervisor
     supervisor = SystemSupervisor(model_provider="mock")
     query = " ".join(args.query_parts)
     try:
@@ -348,6 +363,7 @@ def cmd_chat(args):
 
 def cmd_verify_audit(args):
     """Verify the HMAC-SHA256 audit trail integrity."""
+    from agents.base import AuditLogger
     verified = AuditLogger.verify_integrity()
     trail = AuditLogger.get_trail()
     print(f"Audit trail entries: {len(trail)}")
@@ -419,8 +435,7 @@ def main(argv=None):
         parser.print_help()
         return 1
 
-    args.func(args)
-    return 0
+    return args.func(args) or 0
 
 
 if __name__ == "__main__":

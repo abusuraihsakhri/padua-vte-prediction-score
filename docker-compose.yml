@@ -1,19 +1,7 @@
-version: '3.8'
-
 services:
   padua-vte-prediction-score:
     build: .
-    container_name: padua-vte-prediction-score
-    ports:
-      - "8000:8000"
     environment:
-      - AUDIT_SECRET_KEY=${AUDIT_SECRET_KEY:?AUDIT_SECRET_KEY must be set in .env file}
-      - MODEL_PROVIDER=mock
-    env_file:
-      - .env
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      MODEL_PROVIDER: mock
+    # CLI-only container. Example:
+    # docker compose run --rm padua-vte-prediction-score python cli.py assess --active-cancer

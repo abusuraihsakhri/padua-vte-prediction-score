@@ -40,6 +40,14 @@ PADUA_RISK_FACTORS: Dict[str, int] = {
 PADUA_THRESHOLD = 4  # ≥4 = high risk; <4 = low risk
 
 
+def _require_boolean_flags(flags: Dict[str, bool]) -> None:
+    """Prevent truthy strings, numbers, or missing-data markers from becoming risk factors."""
+    for name, value in flags.items():
+        if type(value) is not bool:
+            raise TypeError(f"{name} must be a boolean (True or False); got {type(value).__name__}")
+
+
+
 def calculate_padua_score(
     active_cancer: bool = False,
     previous_vte: bool = False,
@@ -79,6 +87,7 @@ def calculate_padua_score(
         "ongoing_hormonal_treatment": ongoing_hormonal_treatment,
     }
 
+    _require_boolean_flags(factors)
     score = 0
     active_factors = []
     for name, present in factors.items():
@@ -94,8 +103,11 @@ def calculate_padua_score(
         vte_incidence = "11.0%"
         prophylaxis_recommended = True
         prophylaxis_rationale = (
-            "Pharmacologic prophylaxis (LMWH, LDUH, or fondaparinux) is recommended. "
-            "VTE incidence without prophylaxis is approximately 11.0% in this risk group."
+            "Pharmacologic prophylaxis (LMWH, LDUH, or fondaparinux) is generally "
+            "considered for high-risk medical inpatients only after individual bleeding "
+            "risk, contraindications, and relevant guidelines are reviewed. "
+            "The 11.0% is an observed 90-day VTE incidence in the original untreated cohort, "
+            "not an individualized probability."
         )
     else:
         risk_level = "Low"
@@ -103,7 +115,7 @@ def calculate_padua_score(
         prophylaxis_recommended = False
         prophylaxis_rationale = (
             "Pharmacologic prophylaxis is not routinely recommended. "
-            "VTE incidence without prophylaxis is approximately 0.3% in this risk group. "
+            "The 0.3% is an observed 90-day VTE incidence in the original low-risk cohort. "
             "Early mobilization and reassessment if clinical status changes."
         )
 
@@ -199,17 +211,22 @@ def calculate_improve_vte_score(
 # ---------------------------------------------------------------------------
 # Bleeding Risk Assessment
 # ---------------------------------------------------------------------------
+# IMPROVE bleeding score (Decousus et al., Chest 2011).
+# Age and renal-function bands are mutually exclusive; 7+ indicates high risk.
 BLEEDING_RISK_FACTORS: Dict[str, Dict[str, Any]] = {
-    "active_gastroduodenal_ulcer": {"points": 4, "description": "Active gastroduodenal ulcer"},
-    "bleeding_within_3_months": {"points": 4, "description": "Bleeding within the past 3 months"},
-    "platelet_count_below_50k": {"points": 4, "description": "Platelet count <50,000/µL"},
-    "hepatic_failure_inr_1_5_or_more": {"points": 2, "description": "Hepatic failure (INR ≥1.5)"},
-    "severe_renal_failure": {"points": 2, "description": "Severe renal failure (GFR <30 mL/min)"},
-    "icu_or_ccu_stay": {"points": 2, "description": "ICU/CCU stay"},
-    "central_venous_catheter": {"points": 2, "description": "Central venous catheter"},
-    "rheumatologic_disorder": {"points": 2, "description": "Rheumatologic disorder"},
-    "active_cancer": {"points": 2, "description": "Active cancer"},
-    "age_85_or_older": {"points": 1, "description": "Age ≥85 years"},
+    "active_gastroduodenal_ulcer": {"points": 4.5, "description": "Active gastroduodenal ulcer"},
+    "bleeding_within_3_months": {"points": 4.0, "description": "Bleeding within the past 3 months"},
+    "platelet_count_below_50k": {"points": 4.0, "description": "Platelet count <50,000/µL"},
+    "hepatic_failure_inr_1_5_or_more": {"points": 2.5, "description": "Hepatic failure (INR >1.5)"},
+    "severe_renal_failure": {"points": 2.5, "description": "Severe renal failure (GFR <30 mL/min)"},
+    "moderate_renal_failure": {"points": 1.0, "description": "Moderate renal failure (GFR 30–59 mL/min)"},
+    "icu_or_ccu_stay": {"points": 2.5, "description": "ICU/CCU stay"},
+    "central_venous_catheter": {"points": 2.0, "description": "Central venous catheter"},
+    "rheumatologic_disorder": {"points": 2.0, "description": "Rheumatologic disorder"},
+    "active_cancer": {"points": 2.0, "description": "Active cancer"},
+    "age_85_or_older": {"points": 3.5, "description": "Age ≥85 years"},
+    "age_40_to_84": {"points": 1.5, "description": "Age 40–84 years"},
+    "male_sex": {"points": 1.0, "description": "Male sex"},
 }
 
 BLEEDING_HIGH_THRESHOLD = 7  # ≥7 = high bleeding risk
@@ -221,21 +238,25 @@ def assess_bleeding_risk(
     platelet_count_below_50k: bool = False,
     hepatic_failure_inr_1_5_or_more: bool = False,
     severe_renal_failure: bool = False,
+    moderate_renal_failure: bool = False,
     icu_or_ccu_stay: bool = False,
     central_venous_catheter: bool = False,
     rheumatologic_disorder: bool = False,
     active_cancer: bool = False,
     age_85_or_older: bool = False,
+    age_40_to_84: bool = False,
+    male_sex: bool = False,
 ) -> Dict[str, Any]:
     """
     Assess bleeding risk in patients being considered for anticoagulation.
 
-    Based on IMPROVE bleeding risk model components. Helps weigh the benefit
-    of VTE prophylaxis against the risk of bleeding.
+    Implements the weighted IMPROVE bleeding score. ALL inputs must be
+    assessed: omitted factors default to False and may underestimate risk.
+    Age and renal-function categories must not overlap.
 
     Returns a dict with:
-      - score: int
-      - bleeding_risk_level: "Low", "Moderate", or "High"
+      - score: float
+      - bleeding_risk_level: "Low" or "High"
       - clinical_note: str
       - active_factors: list of (factor_name, points) tuples
     """
@@ -245,12 +266,21 @@ def assess_bleeding_risk(
         "platelet_count_below_50k": platelet_count_below_50k,
         "hepatic_failure_inr_1_5_or_more": hepatic_failure_inr_1_5_or_more,
         "severe_renal_failure": severe_renal_failure,
+        "moderate_renal_failure": moderate_renal_failure,
         "icu_or_ccu_stay": icu_or_ccu_stay,
         "central_venous_catheter": central_venous_catheter,
         "rheumatologic_disorder": rheumatologic_disorder,
         "active_cancer": active_cancer,
         "age_85_or_older": age_85_or_older,
+        "age_40_to_84": age_40_to_84,
+        "male_sex": male_sex,
     }
+
+    _require_boolean_flags(kwargs)
+    if age_85_or_older and age_40_to_84:
+        raise ValueError("Age categories are mutually exclusive")
+    if severe_renal_failure and moderate_renal_failure:
+        raise ValueError("Renal-function categories are mutually exclusive")
 
     score = 0
     active_factors = []
@@ -263,21 +293,15 @@ def assess_bleeding_risk(
     if score >= BLEEDING_HIGH_THRESHOLD:
         risk_level = "High"
         note = (
-            "High bleeding risk. Carefully weigh VTE prophylaxis benefit vs. "
-            "bleeding risk. Consider mechanical prophylaxis (GCS/IPC) if "
-            "pharmacologic prophylaxis is contraindicated."
-        )
-    elif score >= 4:
-        risk_level = "Moderate"
-        note = (
-            "Moderate bleeding risk. Pharmacologic prophylaxis may still be "
-            "appropriate with close monitoring. Consider dose adjustment."
+            "IMPROVE bleeding score ≥7: elevated bleeding risk. Assess bleeding "
+            "contraindications and consider mechanical prophylaxis, such as intermittent "
+            "pneumatic compression, when medication is inappropriate."
         )
     else:
         risk_level = "Low"
         note = (
-            "Low bleeding risk. Pharmacologic prophylaxis can generally be "
-            "safely administered if VTE risk is elevated."
+            "IMPROVE bleeding score <7: lower predicted bleeding risk, but this "
+            "does not exclude contraindications. Review the full clinical context."
         )
 
     return {
@@ -316,22 +340,22 @@ def clinical_decision(
 
     if vte_high and not bleed_high:
         recommendation = (
-            "HIGH VTE RISK with acceptable bleeding risk. "
-            "Pharmacologic prophylaxis is strongly recommended (LMWH preferred). "
-            "Reassess bleeding risk periodically."
+            "HIGH VTE RISK with a calculated IMPROVE bleeding score below 7. "
+            "Pharmacologic prophylaxis is often strongly recommended only after "
+            "contraindications, missing factors, and individual clinical context "
+            "are reviewed; reassess throughout admission."
         )
     elif vte_high and bleed_high:
         recommendation = (
             "HIGH VTE RISK but ALSO HIGH BLEEDING RISK. "
-            "Individualized decision required. Consider mechanical prophylaxis "
-            "(graduated compression stockings or intermittent pneumatic compression) "
-            "as an alternative or bridge. If pharmacologic prophylaxis is used, "
-            "LMWH at prophylactic dose with close monitoring. "
-            "Consult hematology if uncertain."
+            "Individualized assessment is required. Consider mechanical prophylaxis "
+            "(preferably intermittent pneumatic compression) when anticoagulation "
+            "is contraindicated. Do not automatically prescribe anticoagulants "
+            "from this score; review bleeding sources and specialist advice."
         )
     elif not vte_high and not bleed_high:
         recommendation = (
-            "LOW VTE RISK with low bleeding risk. "
+            "LOW VTE RISK with IMPROVE bleeding score below 7. "
             "Pharmacologic prophylaxis is not routinely recommended. "
             "Encourage early mobilization. Reassess if clinical status changes."
         )
@@ -339,7 +363,7 @@ def clinical_decision(
         recommendation = (
             "LOW VTE RISK with elevated bleeding risk. "
             "Pharmacologic prophylaxis is not recommended. "
-            "Focus on early mobilization and mechanical prophylaxis if needed."
+            "Focus on early mobilization; assess other indications for mechanical prophylaxis."
         )
 
     return {
