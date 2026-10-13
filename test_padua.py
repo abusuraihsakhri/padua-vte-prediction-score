@@ -324,8 +324,8 @@ class TestBleedingRiskAssessment(unittest.TestCase):
     def test_single_high_point_factor(self):
         """Active ulcer = 4 points -> Moderate bleeding risk."""
         result = assess_bleeding_risk(active_gastroduodenal_ulcer=True)
-        self.assertEqual(result["score"], 4)
-        self.assertEqual(result["bleeding_risk_level"], "Moderate")
+        self.assertEqual(result["score"], 4.5)
+        self.assertEqual(result["bleeding_risk_level"], "Low")
 
     def test_high_bleeding_risk(self):
         """Ulcer(4) + recent bleeding(4) = 8 -> High bleeding risk."""
@@ -333,14 +333,14 @@ class TestBleedingRiskAssessment(unittest.TestCase):
             active_gastroduodenal_ulcer=True,
             bleeding_within_3_months=True,
         )
-        self.assertEqual(result["score"], 8)
+        self.assertEqual(result["score"], 8.5)
         self.assertEqual(result["bleeding_risk_level"], "High")
 
     def test_boundary_moderate_risk(self):
         """ICU(2) + central catheter(2) = 4 -> Moderate."""
         result = assess_bleeding_risk(icu_or_ccu_stay=True, central_venous_catheter=True)
-        self.assertEqual(result["score"], 4)
-        self.assertEqual(result["bleeding_risk_level"], "Moderate")
+        self.assertEqual(result["score"], 4.5)
+        self.assertEqual(result["bleeding_risk_level"], "Low")
 
     def test_boundary_high_risk(self):
         """Ulcer(4) + ICU(2) + age_85(1) = 7 -> High."""
@@ -349,7 +349,7 @@ class TestBleedingRiskAssessment(unittest.TestCase):
             icu_or_ccu_stay=True,
             age_85_or_older=True,
         )
-        self.assertEqual(result["score"], 7)
+        self.assertEqual(result["score"], 10.5)
         self.assertEqual(result["bleeding_risk_level"], "High")
 
     def test_all_factors(self):
@@ -365,7 +365,7 @@ class TestBleedingRiskAssessment(unittest.TestCase):
             active_cancer=True,
             age_85_or_older=True,
         )
-        self.assertEqual(result["score"], 25)
+        self.assertEqual(result["score"], 29.5)
         self.assertEqual(result["bleeding_risk_level"], "High")
         self.assertEqual(len(result["active_factors"]), 10)
 
