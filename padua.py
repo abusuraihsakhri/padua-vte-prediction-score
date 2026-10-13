@@ -177,6 +177,7 @@ def calculate_improve_vte_score(
         "age_60_or_older": age_60_or_older,
     }
 
+    _require_boolean_flags(factors)
     score = 0
     active_factors = []
     for name, present in factors.items():

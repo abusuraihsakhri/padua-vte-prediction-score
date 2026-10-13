@@ -47,3 +47,9 @@ def test_phi_in_audit_metadata_rejected():
     ledger = AuditTrail(secret_key="unit-test-only")
     with pytest.raises(SecurityException):
         ledger.log("MRN-123456", "local", "event", {"status": "ok"})
+
+
+def test_improve_vte_rejects_strings():
+    from padua import calculate_improve_vte_score
+    with pytest.raises(TypeError):
+        calculate_improve_vte_score(previous_vte="False")
