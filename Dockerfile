@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Core Padua VTE calculator is zero-dependency (stdlib only).
 # Optional: install pydantic for enterprise supervisor features.
-RUN pip install --no-cache-dir pydantic
+RUN pip install --no-cache-dir 'pydantic>=2,<3'
 
 COPY . .
 

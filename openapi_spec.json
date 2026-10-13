@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Padua Vte Prediction Score API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
+    "description": "Experimental task-audit API, separate from the Padua score calculator. No PHI de-identification guarantee; protect endpoints before deployment.",
+    "version": "1.0.0",
     "contact": {
       "name": "Dr. Abu Suraih Sakhri",
       "url": "https://github.com/abusuraihsakhri"
@@ -15,7 +15,7 @@
         "summary": "Health and metadata check",
         "responses": {
           "200": {
-            "description": "System optimal"
+            "description": "Local demo service health"
           }
         }
       }
@@ -25,7 +25,7 @@
         "summary": "Prometheus operational metrics",
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "JSON task counts (not Prometheus text format)"
           }
         }
       }

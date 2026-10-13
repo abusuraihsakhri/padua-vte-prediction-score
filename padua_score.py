@@ -1,117 +1,121 @@
 #!/usr/bin/env python3
-"""
-Padua Prediction Score for Hospitalized Medical Patients
-Evaluates VTE risk in non-surgical hospitalized patients to guide thromboprophylaxis.
+"""Padua Prediction Score calculation and local CSV batch processing.
 
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+This module delegates all clinical scoring to padua.calculate_padua_score.
+No patient information is transmitted. Only de-identified data should be used.
 """
-
 import argparse
 import csv
 import json
-import sys
-from typing import Dict, Any
+from pathlib import Path
+
+from padua import PADUA_RISK_FACTORS, calculate_padua_score
 
 
-def calculate_metrics(**kwargs) -> Dict[str, Any]:
-    """
-    Core domain algorithm for padua-vte-prediction-score.
-    """
-    params = {}
-    for k, v in kwargs.items():
-        if v is not None:
-            try:
-                params[k] = float(v)
-            except (ValueError, TypeError):
-                params[k] = str(v)
+def _parse_boolean(value, *, label):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "y"}:
+            return True
+        if normalized in {"0", "false", "no", "n"}:
+            return False
+    raise ValueError(f"{label}: expected Yes/No, True/False or 1/0, got {value!r}")
 
-    # Deterministic domain logic
-    numeric_vals = [val for val in params.values() if isinstance(val, (int, float))]
-    primary_val = numeric_vals[0] if numeric_vals else 1.0
 
-    score = primary_val
-    for idx, nv in enumerate(numeric_vals[1:], start=2):
-        score += nv * (1.0 / idx)
-
-    rounded_score = round(score, 2)
-    
-    # Classification / tiering
-    if rounded_score < 10.0:
-        tier = "Low / Standard"
-        action = "Standard monitoring or negative cutoff"
-    elif rounded_score < 25.0:
-        tier = "Moderate / Intermediate"
-        action = "Close observation or secondary evaluation"
-    else:
-        tier = "High / Severe"
-        action = "Urgent clinical intervention or primary positive finding"
-
+def calculate_metrics(**kwargs):
+    """Compute validated Padua points, rejecting unknown factors or invalid values."""
+    unknown = set(kwargs) - set(PADUA_RISK_FACTORS)
+    if unknown:
+        raise ValueError(f"Unknown Padua factor(s): {', '.join(sorted(unknown))}")
+    factors = {key: _parse_boolean(value, label=key) for key, value in kwargs.items()}
+    result = calculate_padua_score(**factors)
     return {
         "tool": "padua-vte-prediction-score",
-        "score": rounded_score,
-        "classification": tier,
-        "clinical_recommendation": action,
-        "inputs_evaluated": len(params),
+        "score": result["score"],
+        "classification": result["risk_level"],
+        "clinical_recommendation": (
+            "High Padua VTE-risk category; assess bleeding risk and contraindications "
+            "before considering prophylaxis."
+            if result["risk_level"] == "High"
+            else "Low Padua VTE-risk category; reassess if clinical status changes."
+        ),
+        "inputs_evaluated": len(factors),
     }
 
 
-def process_single(args) -> None:
-    kwargs = vars(args)
-    kwargs.pop("func", None)
-    res = calculate_metrics(**kwargs)
-    print(json.dumps(res, indent=2))
+def _safe_csv_value(value):
+    """Prevent accidental spreadsheet-formula execution in pass-through metadata."""
+    if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@")):
+        return "'" + value
+    return value
 
 
 def process_batch(input_csv: str, output_csv: str) -> None:
-    with open(input_csv, mode="r", encoding="utf-8-sig") as f:
+    """Process de-identified CSV; reject absent factors and invalid risk-factor cells."""
+    source = Path(input_csv).resolve()
+    destination = Path(output_csv).resolve()
+    if source == destination:
+        raise ValueError("Input and output CSV paths must be different")
+    if source.stat().st_size > 10_000_000:
+        raise ValueError("CSV exceeds the 10 MB safety limit")
+
+    with source.open(mode="r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
-        fieldnames = list(reader.fieldnames or [])
-        rows = list(reader)
+        fields = list(reader.fieldnames or [])
+        if not fields or len(fields) != len(set(fields)) or None in fields:
+            raise ValueError("CSV header is empty, duplicated, or invalid")
+        used_factors = [field for field in fields if field in PADUA_RISK_FACTORS]
+        missing = sorted(set(PADUA_RISK_FACTORS) - set(used_factors))
+        if missing:
+            raise ValueError("CSV must include all 11 Padua factor columns; missing: "
+                             + ", ".join(missing))
+        if any(field in fields for field in ("score", "classification", "clinical_recommendation")):
+            raise ValueError("CSV input already contains an output column")
+        output_fields = fields + ["score", "classification", "clinical_recommendation"]
+        out_rows = []
+        for count, row in enumerate(reader, start=1):
+            if count > 100_000:
+                raise ValueError("CSV exceeds the 100,000-record safety limit")
+            if None in row or any(value is None for value in row.values()):
+                raise ValueError(f"Row {count}: does not match the CSV header")
+            try:
+                result = calculate_metrics(**{key: row[key] for key in used_factors})
+            except ValueError as exc:
+                raise ValueError(f"Row {count}: {exc}") from exc
+            sanitized = {name: _safe_csv_value(value) for name, value in row.items()}
+            out_rows.append({**sanitized, **{
+                k: result[k] for k in ("score", "classification", "clinical_recommendation")
+            }})
 
-    out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
-    out_rows = []
-
-    for r in rows:
-        calc_res = calculate_metrics(**r)
-        row_dict = dict(r)
-        row_dict["score"] = calc_res["score"]
-        row_dict["classification"] = calc_res["classification"]
-        row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-        out_rows.append(row_dict)
-
-    with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=out_fields)
+    # Validate every row before creating or replacing the output file.
+    with destination.open(mode="w", encoding="utf-8", newline="") as output:
+        writer = csv.DictWriter(output, fieldnames=output_fields)
         writer.writeheader()
         writer.writerows(out_rows)
-
-    print(f"Processed {len(out_rows)} records -> {output_csv}")
+    count = len(out_rows)
+    print(f"Processed {count} records -> {destination}")
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Padua Prediction Score for Hospitalized Medical Patients")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # Single parser
-    single_parser = subparsers.add_parser("single", help="Evaluate single case")
-    single_parser.add_argument("--v1", type=float, default=10.0, help="Primary parameter")
-    single_parser.add_argument("--v2", type=float, default=5.0, help="Secondary parameter")
-    single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
-    single_parser.set_defaults(func=process_single)
-
-    # Batch parser
-    batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
-    batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
-    batch_parser.add_argument("-o", "--output", default="results.csv", help="Output CSV")
-
+    parser = argparse.ArgumentParser(description="Padua VTE prediction for medical inpatients")
+    subs = parser.add_subparsers(dest="command", required=True)
+    single = subs.add_parser("single", help="Score one set of named risk factors")
+    for factor, points in PADUA_RISK_FACTORS.items():
+        single.add_argument("--" + factor.replace("_", "-"), action="store_true",
+                            help=f"{factor.replace('_', ' ')} (+{points})")
+    batch = subs.add_parser("batch", help="Score a CSV of named Padua risk factors")
+    batch.add_argument("-i", "--input", required=True)
+    batch.add_argument("-o", "--output", default="results.csv")
     args = parser.parse_args(argv)
-
     if args.command == "single":
-        args.func(args)
-    elif args.command == "batch":
+        values = {name: getattr(args, name) for name in PADUA_RISK_FACTORS}
+        print(json.dumps(calculate_metrics(**values), indent=2))
+    else:
         process_batch(args.input, args.output)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
