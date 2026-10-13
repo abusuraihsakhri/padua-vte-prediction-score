@@ -15,7 +15,7 @@ class MockLLM:
 
 
 class LLMFactory:
-    """Creates configured LLM client instances with zero-PHI protection."""
+    """Creates only the local mock responder, with limited identifier checks."""
 
     @staticmethod
     def create(provider: str = "mock", system_name: str = "Padua Vte Prediction Score"):

@@ -1,8 +1,10 @@
 """
 FastAPI REST API Server for Padua Vte Prediction Score.
 """
-from typing import Dict, Any, List
-from fastapi import FastAPI, HTTPException
+import hmac
+import os
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard, SecurityException
 from .models import SystemTaskPayload, ConsensusDossier
@@ -12,9 +14,22 @@ supervisor = SystemSupervisor(model_provider="mock")
 
 app = FastAPI(
     title="Padua Vte Prediction Score API",
-    description="Enterprise Distributed Component Platform (Clinical & Biomedical AI)",
-    version="3.0.0-ENTERPRISE",
+    description="Optional local-only experimental task-audit demo; not a Padua risk API.",
+    version="1.0.0",
 )
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)
+    expected = os.getenv("AUDIT_API_KEY")
+    if not expected:
+        return JSONResponse(status_code=503, content={"detail": "AUDIT_API_KEY not configured"})
+    supplied = request.headers.get("x-api-key", "")
+    if not hmac.compare_digest(supplied, expected):
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
 
 
 class ChatRequest(BaseModel):
@@ -23,7 +38,7 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "HEALTHY", "service": "padua-vte-prediction-score", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
+    return {"status": "HEALTHY", "service": "padua-vte-prediction-score", "api_key_configured": bool(os.getenv("AUDIT_API_KEY")), "version": "1.0.0"}
 
 
 @app.get("/metrics")
