@@ -30,6 +30,9 @@ jobs:
         run: python -m compileall -q .
       - name: Run regression tests
         run: python -m pytest -q
+      - name: Build Docker CLI image
+        if: matrix.python-version == '3.12'
+        run: docker build -t padua-vte:test .
       - name: Verify CLI
         run: |
           python cli.py --json assess --active-cancer --age-70-or-older
