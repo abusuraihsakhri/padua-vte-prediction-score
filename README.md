@@ -55,7 +55,7 @@ python cli.py audit --task-id DEMO-001
 python cli.py verify-audit
 ```
 
-`agents/api.py` additionally needs FastAPI and Uvicorn. Every endpoint except `/health` requires a secret `AUDIT_API_KEY` supplied through the `X-API-Key` header; unauthenticated requests are rejected and the service returns 503 if the key is unset. These remain development-only endpoints; do not expose them publicly or process patient information. Generate a separate, strong API key instead of reusing `AUDIT_SECRET_KEY`.
+`agents/api.py` additionally needs FastAPI and Uvicorn. Every endpoint except `/health` requires a secret `AUDIT_API_KEY` supplied through the `X-API-Key` header; unauthenticated requests are rejected and the service returns 503 unless both `AUDIT_API_KEY` and `AUDIT_SECRET_KEY` are configured. These remain development-only endpoints; do not expose them publicly or process patient information. Generate a separate, strong API key instead of reusing `AUDIT_SECRET_KEY`.
 
 The Docker image runs the CLI, not an HTTP server:
 

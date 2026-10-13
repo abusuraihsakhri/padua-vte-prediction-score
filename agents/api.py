@@ -24,8 +24,8 @@ async def require_api_key(request: Request, call_next):
     if request.url.path == "/health":
         return await call_next(request)
     expected = os.getenv("AUDIT_API_KEY")
-    if not expected:
-        return JSONResponse(status_code=503, content={"detail": "AUDIT_API_KEY not configured"})
+    if not expected or not os.getenv("AUDIT_SECRET_KEY"):
+        return JSONResponse(status_code=503, content={"detail": "Audit service credentials are not configured"})
     supplied = request.headers.get("x-api-key", "")
     if not hmac.compare_digest(supplied, expected):
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
