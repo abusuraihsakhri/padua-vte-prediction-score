@@ -1,4 +1,4 @@
-Patient_ID,active_cancer,previous_vte,reduced_mobility,age_70_or_older,acute_infection_or_rheumatologic
-CASE-001,1,0,1,1,0
-CASE-002,0,0,0,1,1
-CASE-003,1,0,0,0,1
+Patient_ID,active_cancer,previous_vte,reduced_mobility,thrombophilic_condition,recent_trauma_or_surgery,age_70_or_older,heart_or_respiratory_failure,acute_mi_or_ischemic_stroke,acute_infection_or_rheumatologic,obesity_bmi_30_or_more,ongoing_hormonal_treatment
+CASE-001,1,0,1,0,0,1,0,0,0,0,0
+CASE-002,0,0,0,0,0,1,0,0,1,0,0
+CASE-003,1,0,0,0,0,0,0,0,1,0,0

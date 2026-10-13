@@ -35,7 +35,7 @@ python cli.py assess --active-cancer --age-70-or-older
 python cli.py --json full --active-cancer --reduced-mobility
 ```
 
-For de-identified local CSV batches, `padua_score.py` accepts named columns matching the Python Padua factors. Values must be yes/no, true/false or 1/0; invalid inputs fail rather than silently changing clinical scores.
+For de-identified local CSV batches, `padua_score.py` requires **all 11 named Padua factor columns**, each explicitly set to yes/no, true/false or 1/0. Blank, missing or invalid risk-factor values are rejected to avoid treating unknown clinical data as absent. Additional pseudonymous metadata columns are retained.
 
 ```bash
 python padua_score.py single --active-cancer --age-70-or-older

@@ -19,7 +19,7 @@ def _parse_boolean(value, *, label):
         normalized = value.strip().lower()
         if normalized in {"1", "true", "yes", "y"}:
             return True
-        if normalized in {"0", "false", "no", "n", ""}:
+        if normalized in {"0", "false", "no", "n"}:
             return False
     raise ValueError(f"{label}: expected Yes/No, True/False or 1/0, got {value!r}")
 
@@ -67,28 +67,34 @@ def process_batch(input_csv: str, output_csv: str) -> None:
         if not fields or len(fields) != len(set(fields)) or None in fields:
             raise ValueError("CSV header is empty, duplicated, or invalid")
         used_factors = [field for field in fields if field in PADUA_RISK_FACTORS]
-        if not used_factors:
-            raise ValueError("CSV requires at least one named Padua risk-factor column")
+        missing = sorted(set(PADUA_RISK_FACTORS) - set(used_factors))
+        if missing:
+            raise ValueError("CSV must include all 11 Padua factor columns; missing: "
+                             + ", ".join(missing))
         if any(field in fields for field in ("score", "classification", "clinical_recommendation")):
             raise ValueError("CSV input already contains an output column")
         output_fields = fields + ["score", "classification", "clinical_recommendation"]
-        with destination.open(mode="w", encoding="utf-8", newline="") as output:
-            writer = csv.DictWriter(output, fieldnames=output_fields)
-            writer.writeheader()
-            count = 0
-            for count, row in enumerate(reader, start=1):
-                if count > 100_000:
-                    raise ValueError("CSV exceeds the 100,000-record safety limit")
-                if None in row:
-                    raise ValueError(f"Row {count}: more fields than header")
-                try:
-                    result = calculate_metrics(**{key: row[key] for key in used_factors})
-                except ValueError as exc:
-                    raise ValueError(f"Row {count}: {exc}") from exc
-                sanitized = {name: _safe_csv_value(value) for name, value in row.items()}
-                writer.writerow({**sanitized, **{
-                    k: result[k] for k in ("score", "classification", "clinical_recommendation")
-                }})
+        out_rows = []
+        for count, row in enumerate(reader, start=1):
+            if count > 100_000:
+                raise ValueError("CSV exceeds the 100,000-record safety limit")
+            if None in row or any(value is None for value in row.values()):
+                raise ValueError(f"Row {count}: does not match the CSV header")
+            try:
+                result = calculate_metrics(**{key: row[key] for key in used_factors})
+            except ValueError as exc:
+                raise ValueError(f"Row {count}: {exc}") from exc
+            sanitized = {name: _safe_csv_value(value) for name, value in row.items()}
+            out_rows.append({**sanitized, **{
+                k: result[k] for k in ("score", "classification", "clinical_recommendation")
+            }})
+
+    # Validate every row before creating or replacing the output file.
+    with destination.open(mode="w", encoding="utf-8", newline="") as output:
+        writer = csv.DictWriter(output, fieldnames=output_fields)
+        writer.writeheader()
+        writer.writerows(out_rows)
+    count = len(out_rows)
     print(f"Processed {count} records -> {destination}")
 
 
